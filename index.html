@@ -14,38 +14,34 @@
   <h1>ESP32 Signal Monitor</h1>
   <div id="status">Loading...</div>
 
-  <script>
-    // Your Firebase config (from Firebase Console)
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "your-project-id.firebaseapp.com",
-      databaseURL: "https://your-project-id.firebaseio.com",
-      projectId: "your-project-id",
-      storageBucket: "your-project-id.appspot.com",
-      messagingSenderId: "xxxxxxx",
-      appId: "1:xxxxxxx:web:xxxxxxx"
-    };
+  <!-- COMPATIBLE version (NO import, NO modules needed) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
-    const app = firebase.initializeApp(firebaseConfig);
-    const database = firebase.database(app);
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBTCuuV_6qMCarC7ZlLwpEDM8-B0m9pWYM",
+    authDomain: "esp32-signal-monitor.firebaseapp.com",
+    databaseURL: "https://esp32-signal-monitor-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "esp32-signal-monitor",
+    storageBucket: "esp32-signal-monitor.firebasestorage.app",
+    messagingSenderId: "339309270825",
+    appId: "1:339309270825:web:689b121b434a74a6030938"
+  };
 
-    const statusDiv = document.getElementById("status");
+  // Initialize Firebase using compat version
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
 
-    function listenToESP32() {
-      const statusRef = database.ref("esp32/status");
-      statusRef.on("value", (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          statusDiv.textContent = "Signal: " + data;
-        } else {
-          statusDiv.textContent = "No signal";
-        }
-      }, (error) => {
-        statusDiv.textContent = "Error: " + error.code;
-      });
-    }
+  const statusDiv = document.getElementById("status");
 
-    listenToESP32();
-  </script>
+  database.ref("esp32/status").on("value", snapshot => {
+    const val = snapshot.val();
+    statusDiv.textContent = val ? "Signal: " + val : "No signal";
+  }, error => {
+    statusDiv.textContent = "Error: " + error.code;
+  });
+</script>
+
 </body>
 </html>
