@@ -2,19 +2,22 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Updated ESP32 Monitor</title>
+  <title>ESP32 Monitor</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
   <style>
-    body { font-family: Arial; text-align: center; padding: 50px; }
+    body { font-family: Arial; text-align: center; padding: 30px; background: #f9f9f9; }
     h1 { font-size: 2em; }
-    .device { margin-top: 20px; font-size: 1.2em; padding: 10px; border-bottom: 1px solid #ccc; }
-    .mac { font-weight: bold; color: #555; }
-    .msg { color: #222; }
+    .device { border: 1px solid #ccc; margin: 15px auto; padding: 10px; max-width: 400px; background: #fff; border-radius: 8px; }
+    .mac { font-weight: bold; color: #2b2b2b; }
+    .msg { margin: 5px 0; }
+    .status { color: green; }
+    .offline { color: red; }
+    button { margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h1>ESP32 Board Messages</h1>
+  <h1>ESP32 Device Monitor</h1>
   <div id="devices"></div>
 
   <script>
@@ -23,7 +26,7 @@
       authDomain: "esp32-signal-monitor.firebaseapp.com",
       databaseURL: "https://esp32-signal-monitor-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "esp32-signal-monitor",
-      storageBucket: "esp32-signal-monitor.firebasestorage.app",
+      storageBucket: "esp32-signal-monitor.appspot.com",
       messagingSenderId: "339309270825",
       appId: "1:339309270825:web:689b121b434a74a6030938"
     };
@@ -33,18 +36,58 @@
 
     const devicesDiv = document.getElementById("devices");
 
-    db.ref("devices").on("value", snapshot => {
-      const data = snapshot.val();
-      devicesDiv.innerHTML = ''; // Clear all before update
+    function updateDevices() {
+      db.ref("devices").on("value", snap => {
+        const devices = snap.val();
+        devicesDiv.innerHTML = "";
 
-      for (const mac in data) {
-        const msg = data[mac];
-        const deviceDiv = document.createElement("div");
-        deviceDiv.className = "device";
-        deviceDiv.innerHTML = `<div class="mac">📡 ${mac}</div><div class="msg">${msg}</div>`;
-        devicesDiv.appendChild(deviceDiv);
-      }
-    });
+        for (const mac in devices) {
+          const data = devices[mac];
+          const msg = data.message || "No message";
+          const time = data.timestamp || 0;
+
+          const devDiv = document.createElement("div");
+          devDiv.className = "device";
+          devDiv.innerHTML = `
+            <div class="mac">📟 ${mac}</div>
+            <div class="msg">📝 ${msg}</div>
+            <div class="msg">⏱️ ${new Date().toLocaleString()}</div>
+            <div id="status-${mac}">Checking status...</div>
+            <input type="text" id="cmd-${mac}" placeholder="Send command">
+            <br><button onclick="sendCommand('${mac}')">Send Command</button>
+          `;
+          devicesDiv.appendChild(devDiv);
+          checkStatus(mac);
+        }
+      });
+    }
+
+    function checkStatus(mac) {
+      db.ref("heartbeat/" + mac).once("value").then(snap => {
+        const lastSeen = snap.val();
+        const now = Date.now();
+        const status = document.getElementById("status-" + mac);
+        if (lastSeen && now - lastSeen < 15000) {
+          status.innerHTML = `<span class="status">🟢 Online</span>`;
+        } else {
+          status.innerHTML = `<span class="offline">🔴 Offline</span>`;
+        }
+      });
+    }
+
+    function sendCommand(mac) {
+      const input = document.getElementById("cmd-" + mac);
+      const command = input.value.trim();
+      if (command.length === 0) return;
+
+      db.ref("commands/" + mac).set(command).then(() => {
+        alert("Command sent to " + mac + ": " + command);
+        input.value = "";
+      });
+    }
+
+    updateDevices();
+    setInterval(updateDevices, 5000); // refresh every 5 seconds
   </script>
 </body>
 </html>
