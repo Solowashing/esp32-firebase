@@ -46,9 +46,13 @@
     db.ref("heartbeat/" + mac).once("value").then(snap => {
       const lastSeen = Number(snap.val());
       const now = Date.now();
-      const diff = now - lastSeen;
 
-      console.log(`🔍 MAC: ${mac}, Last Seen: ${lastSeen}, Now: ${now}, Diff: ${diff}ms`);
+      // ✅ Detect if timestamp is in seconds or milliseconds
+      const isInSeconds = lastSeen < 1000000000000;
+      const correctedLastSeen = isInSeconds ? lastSeen * 1000 : lastSeen;
+      const diff = now - correctedLastSeen;
+
+      console.log(`🔍 MAC: ${mac}, Last Seen: ${correctedLastSeen}, Now: ${now}, Diff: ${diff}ms`);
 
       if (lastSeen && diff < 15000) {
         statusDiv.innerHTML = `<span class="status">🟢 Online</span> (seen ${Math.floor(diff / 1000)}s ago)`;
@@ -100,8 +104,5 @@
     });
   }
 </script>
-
-
-  
 </body>
 </html>
