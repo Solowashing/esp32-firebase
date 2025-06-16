@@ -20,85 +20,88 @@
   <h1>ESP32 Device Monitor</h1>
   <div id="devices"></div>
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyBTCuuV_6qMCarC7ZlLwpEDM8-B0m9pWYM",
-      authDomain: "esp32-signal-monitor.firebaseapp.com",
-      databaseURL: "https://esp32-signal-monitor-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "esp32-signal-monitor",
-      storageBucket: "esp32-signal-monitor.appspot.com",
-      messagingSenderId: "339309270825",
-      appId: "1:339309270825:web:689b121b434a74a6030938"
-    };
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBTCuuV_6qMCarC7ZlLwpEDM8-B0m9pWYM",
+    authDomain: "esp32-signal-monitor.firebaseapp.com",
+    databaseURL: "https://esp32-signal-monitor-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "esp32-signal-monitor",
+    storageBucket: "esp32-signal-monitor.appspot.com",
+    messagingSenderId: "339309270825",
+    appId: "1:339309270825:web:689b121b434a74a6030938"
+  };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const devicesDiv = document.getElementById("devices");
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const devicesDiv = document.getElementById("devices");
 
-    function updateDevices() {
-      db.ref("devices").on("value", snap => {
-        console.log("🔥 Devices updated!", snap.val()); // ← added log
+  function formatTime(timestamp) {
+    if (!timestamp) return "No timestamp";
+    const date = new Date(Number(timestamp));
+    return isNaN(date) ? "Invalid timestamp" : date.toLocaleString();
+  }
 
-        const devices = snap.val() || {};
-        devicesDiv.innerHTML = "";
+  function checkStatus(mac) {
+    const statusDiv = document.getElementById("status-" + mac);
+    db.ref("heartbeat/" + mac).once("value").then(snap => {
+      const lastSeen = Number(snap.val());
+      const now = Date.now();
+      const diff = now - lastSeen;
 
-        for (const mac in devices) {
-          const data = devices[mac];
-          if (typeof data !== "object") {
-            console.warn("⚠️ Invalid device data:", mac, data); // ← added warning
-            continue;
-          }
+      console.log(`🔍 MAC: ${mac}, Last Seen: ${lastSeen}, Now: ${now}, Diff: ${diff}ms`);
 
-          const msg = data.message || "No message";
-          const timestamp = data.timestamp || 0;
+      if (lastSeen && diff < 15000) {
+        statusDiv.innerHTML = `<span class="status">🟢 Online</span> (seen ${Math.floor(diff / 1000)}s ago)`;
+      } else {
+        statusDiv.innerHTML = `<span class="offline">🔴 Offline</span>`;
+      }
+    });
+  }
 
-          const devDiv = document.createElement("div");
-          devDiv.className = "device";
-          devDiv.innerHTML = `
-            <div class="mac">📟 ${mac}</div>
-            <div class="msg">📝 ${msg}</div>
-            <div class="msg">⏱️ ${formatTime(timestamp)}</div>
-            <div id="status-${mac}">Checking status...</div>
-            <input type="text" id="cmd-${mac}" placeholder="Send command">
-            <br><button onclick="sendCommand('${mac}')">Send Command</button>
-          `;
-          devicesDiv.appendChild(devDiv);
-          checkStatus(mac);
-        }
-      });
+  db.ref("devices").on("value", snap => {
+    console.log("🔥 Devices updated!", snap.val());
+
+    const devices = snap.val() || {};
+    devicesDiv.innerHTML = "";
+
+    for (const mac in devices) {
+      const data = devices[mac];
+      if (typeof data !== "object") {
+        console.warn("⚠️ Invalid device data:", mac, data);
+        continue;
+      }
+
+      const msg = data.message || "No message";
+      const timestamp = data.timestamp || 0;
+
+      const devDiv = document.createElement("div");
+      devDiv.className = "device";
+      devDiv.innerHTML = `
+        <div class="mac">📟 ${mac}</div>
+        <div class="msg">📝 ${msg}</div>
+        <div class="msg">⏱️ ${formatTime(timestamp)}</div>
+        <div id="status-${mac}">Checking status...</div>
+        <input type="text" id="cmd-${mac}" placeholder="Send command">
+        <br><button onclick="sendCommand('${mac}')">Send Command</button>
+      `;
+      devicesDiv.appendChild(devDiv);
+      checkStatus(mac);
     }
+  });
 
-    function formatTime(timestamp) {
-      if (!timestamp) return "No timestamp";
-      const date = new Date(Number(timestamp));
-      return isNaN(date) ? "Invalid timestamp" : date.toLocaleString();
-    }
+  function sendCommand(mac) {
+    const input = document.getElementById("cmd-" + mac);
+    const command = input.value.trim();
+    if (!command) return;
 
-    function checkStatus(mac) {
-      db.ref("heartbeat/" + mac).once("value").then(snap => {
-        const lastSeen = snap.val();
-        const now = Date.now();
-        const status = document.getElementById("status-" + mac);
-        if (lastSeen && now - lastSeen < 15000) {
-          status.innerHTML = `<span class="status">🟢 Online</span> (seen ${Math.floor((now - lastSeen)/1000)}s ago)`;
-        } else {
-          status.innerHTML = `<span class="offline">🔴 Offline</span>`;
-        }
-      });
-    }
+    db.ref("commands/" + mac).set(command).then(() => {
+      alert(`✅ Command sent to ${mac}: ${command}`);
+      input.value = "";
+    });
+  }
+</script>
 
-    function sendCommand(mac) {
-      const input = document.getElementById("cmd-" + mac);
-      const command = input.value.trim();
-      if (!command) return;
 
-      db.ref("commands/" + mac).set(command).then(() => {
-        alert(`✅ Command sent to ${mac}: ${command}`);
-        input.value = "";
-      });
-    }
-
-    updateDevices(); // live update enabled
-  </script>
+  
 </body>
 </html>
