@@ -37,12 +37,17 @@
 
     function updateDevices() {
       db.ref("devices").on("value", snap => {
+        console.log("🔥 Devices updated!", snap.val()); // ← added log
+
         const devices = snap.val() || {};
         devicesDiv.innerHTML = "";
 
         for (const mac in devices) {
           const data = devices[mac];
-          if (typeof data !== 'object') continue; // skip if corrupt
+          if (typeof data !== "object") {
+            console.warn("⚠️ Invalid device data:", mac, data); // ← added warning
+            continue;
+          }
 
           const msg = data.message || "No message";
           const timestamp = data.timestamp || 0;
